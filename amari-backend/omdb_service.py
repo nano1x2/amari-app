@@ -19,9 +19,12 @@ def map_language_to_iso(omdb_lang_string):
     return mapping.get(lang, 'en')
 
 def proxy_image(raw_url):
-    if not raw_url or raw_url == "N/A": return ""
+    if not raw_url or raw_url == "N/A": 
+        return ""
+        
     clean_url = raw_url.replace("https://", "").replace("http://", "")
-    return f"https://images.weserv.nl/?url={quote_plus(clean_url)}&w=600&fit=cover"
+    
+    return f"https://images.weserv.nl/?url={clean_url}&w=600&fit=cover"
 
 async def fetch_movie_data(imdb_id: str):
     async with httpx.AsyncClient() as client:
