@@ -30,27 +30,30 @@ LIVE_SEARCH_QUERIES = ["jujutsu", "kuroko", "mf ghost", "seoul", "tokyo"]
 @app.on_event("startup")
 async def startup_event():
     print("Scraping live data from OMDb...")
-    
     live_ids = set()
     
-    # 1. Search OMDb for our keywords
+    # 1. Search OMDb for keywords
     for query in LIVE_SEARCH_QUERIES:
         ids = await search_live_movies(query)
         live_ids.update(ids)
         
-    # 2. Limit to 30 so we don't hit OMDb rate limits, and fetch full details
-    tasks = [fetch_movie_data(mid) for mid in list(live_ids)[:30]]
-    results = await asyncio.gather(*tasks)
-    
-    # 3. Feed the live data into the session and ML Engine
+    # 2. Fetch sequentially to avoid OMDb DDoS blocks
     session_state["unseen_ids"] = []
-    for movie in results:
-        if movie:
+    
+    # Limit to 20 to ensure fast startup times
+    for mid in list(live_ids)[:20]:
+        movie = await fetch_movie_data(mid)
+        # Only keep titles with actual plots so the ML math doesn't break
+        if movie and movie.get("synopsis") and movie["synopsis"] != "N/A":
             session_state["catalog_data"][movie["id"]] = movie
             session_state["unseen_ids"].append(movie["id"])
             
-    ml_engine.build_matrix(session_state["catalog_data"])
-    print(f"Backend ready with {len(session_state['catalog_data'])} live movies!")
+    # 3. Build ML Matrix safely
+    if len(session_state["catalog_data"]) > 1:
+        ml_engine.build_matrix(session_state["catalog_data"])
+        print(f"Backend ready with {len(session_state['catalog_data'])} titles!")
+    else:
+        print("Warning: Not enough data to build ML matrix.")
 
 class SwipeAction(BaseModel):
     imdb_id: str
