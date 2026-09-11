@@ -22,8 +22,10 @@ def proxy_image(raw_url):
     if not raw_url or raw_url == "N/A": 
         return ""
         
+    if "media-amazon.com" in raw_url:
+        return raw_url
+        
     clean_url = raw_url.replace("https://", "").replace("http://", "")
-    
     return f"https://images.weserv.nl/?url={clean_url}&w=600&fit=cover"
 
 async def fetch_movie_data(imdb_id: str):
