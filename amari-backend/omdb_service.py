@@ -48,9 +48,9 @@ async def fetch_movie_data(imdb_id: str):
         }
 
 async def search_live_movies(query: str):
-    """Scrapes live movie IDs based on a search term."""
+    """Scrapes live movie AND series IDs based on a search term."""
     async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BASE_URL}?s={query}&type=movie&apikey={OMDB_API_KEY}")
+        response = await client.get(f"{BASE_URL}?s={query}&apikey={OMDB_API_KEY}")
         data = response.json()
         
         if data.get("Response") == "True":
