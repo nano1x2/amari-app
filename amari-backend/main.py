@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import asyncio
 
-from omdb_service import fetch_movie_data
+from omdb_service import fetch_movie_data, search_live_movies
 from vector_engine import MLRecommendationEngine
 
 app = FastAPI(title="Amari API")
@@ -18,33 +18,39 @@ app.add_middleware(
 
 ml_engine = MLRecommendationEngine()
 
-SEED_IDS = [
-    "tt10850932", 
-    "tt8178634", 
-    "tt6751668", 
-    "tt11828492", 
-    "tt27496661", 
-    "tt0245429",  
-    "tt0364569",  
-]
 session_state = {
     "liked_ids": [],
-    "unseen_ids": SEED_IDS.copy(),
+    "unseen_ids": [],
     "catalog_data": {}
 }
 
+# The engine will scrape live movies matching these terms every time it boots
+LIVE_SEARCH_QUERIES = ["jujutsu", "kuroko", "mf ghost", "seoul", "tokyo"]
+
 @app.on_event("startup")
 async def startup_event():
-    print("Pre-fetching catalog & building ML matrix...")
-    tasks = [fetch_movie_data(mid) for mid in SEED_IDS]
+    print("Scraping live data from OMDb...")
+    
+    live_ids = set()
+    
+    # 1. Search OMDb for our keywords
+    for query in LIVE_SEARCH_QUERIES:
+        ids = await search_live_movies(query)
+        live_ids.update(ids)
+        
+    # 2. Limit to 30 so we don't hit OMDb rate limits, and fetch full details
+    tasks = [fetch_movie_data(mid) for mid in list(live_ids)[:30]]
     results = await asyncio.gather(*tasks)
     
+    # 3. Feed the live data into the session and ML Engine
+    session_state["unseen_ids"] = []
     for movie in results:
         if movie:
             session_state["catalog_data"][movie["id"]] = movie
+            session_state["unseen_ids"].append(movie["id"])
             
     ml_engine.build_matrix(session_state["catalog_data"])
-    print("Backend ready!")
+    print(f"Backend ready with {len(session_state['catalog_data'])} live movies!")
 
 class SwipeAction(BaseModel):
     imdb_id: str
@@ -68,6 +74,8 @@ async def get_feed_batch():
         top_k=3
     )
     return [session_state["catalog_data"][mid] for mid in best_match_ids]
+
 @app.get("/health")
 async def health_check():
+    """Keeps the Render free tier awake when pinged by UptimeRobot."""
     return {"status": "Amari backend is awake and ready"}
