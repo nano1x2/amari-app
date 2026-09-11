@@ -68,3 +68,6 @@ async def get_feed_batch():
         top_k=3
     )
     return [session_state["catalog_data"][mid] for mid in best_match_ids]
+@app.get("/health")
+async def health_check():
+    return {"status": "Amari backend is awake and ready"}
