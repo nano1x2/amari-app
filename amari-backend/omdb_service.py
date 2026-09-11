@@ -8,17 +8,6 @@ load_dotenv()
 OMDB_API_KEY = os.getenv("OMDB_API_KEY")
 BASE_URL = "http://www.omdbapi.com/"
 
-async def search_live_movies(query: str):
-    """Scrapes live movie IDs based on a search term."""
-    async with httpx.AsyncClient() as client:
-        response = await client.get(f"{BASE_URL}?s={query}&type=movie&apikey={OMDB_API_KEY}")
-        data = response.json()
-        
-        if data.get("Response") == "True":
-            # Return just the IDs from the search results
-            return [movie["imdbID"] for movie in data.get("Search", [])]
-        return []
-
 def map_language_to_iso(omdb_lang_string):
     if not omdb_lang_string: return 'en'
     lang = omdb_lang_string.split(',')[0].strip().lower()
@@ -32,7 +21,6 @@ def map_language_to_iso(omdb_lang_string):
 def proxy_image(raw_url):
     if not raw_url or raw_url == "N/A": 
         return ""
-        
     if "media-amazon.com" in raw_url:
         return raw_url
         
@@ -41,7 +29,6 @@ def proxy_image(raw_url):
 
 async def fetch_movie_data(imdb_id: str):
     async with httpx.AsyncClient() as client:
-        # The URL now uses the protected OMDB_API_KEY variable
         response = await client.get(f"{BASE_URL}?i={imdb_id}&apikey={OMDB_API_KEY}&plot=short")
         data = response.json()
 
@@ -59,3 +46,13 @@ async def fetch_movie_data(imdb_id: str):
             "original_lang": iso_lang,
             "hindi_dub_available": is_asian_or_indian 
         }
+
+async def search_live_movies(query: str):
+    """Scrapes live movie IDs based on a search term."""
+    async with httpx.AsyncClient() as client:
+        response = await client.get(f"{BASE_URL}?s={query}&type=movie&apikey={OMDB_API_KEY}")
+        data = response.json()
+        
+        if data.get("Response") == "True":
+            return [movie["imdbID"] for movie in data.get("Search", [])]
+        return []
